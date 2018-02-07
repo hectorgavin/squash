@@ -109,6 +109,7 @@ if __name__ == '__main__':
 
     from_date = datetime.now().date()
     to_date = from_date
+    courts_set = {"1", "2", "3", "4", "5"}
 
     if args.from_date:
         from_date = datetime.strptime(args.from_date, '%Y-%m-%d').date()
@@ -117,10 +118,12 @@ if __name__ == '__main__':
 
     # Read config
     config = {
-        'available': None
+        'available': None,
+        'courts': ["1", "2", "3", "4", "5"]
     }
     with open('squash.yaml', 'r') as config_file:
         config = yaml.load(config_file)
+    exclude_courts = courts_set.difference(set(config['courts']))
 
     # Get available courts
     print('Available courts from {} to {}'.format(from_date.strftime('%B %d'), to_date.strftime('%B %d')))
@@ -139,4 +142,5 @@ if __name__ == '__main__':
             sorted_times = sorted(available_times.keys())
             for time in sorted_times:
                 courts = available_times[time]
-                print('\t{}: {}'.format(time, ', '.join(courts)))
+                filtered_courts = [court for court in courts if court not in exclude_courts]
+                print('\t{}: {}'.format(time, ', '.join(filtered_courts)))

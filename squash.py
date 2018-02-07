@@ -1,12 +1,14 @@
 #!/usr/bin/python
 
 import argparse
+import time
+from datetime import datetime
+
 import requests
 import yaml
-
-from datetime import datetime, timedelta
-
 from BeautifulSoup import BeautifulSoup
+
+from utils import alert_osx, date_range, yes_or_no, info, warn
 
 squash_calendar_endpoint = 'http://www.squash2000-paramount-fitness.de/plan.php'
 
@@ -65,9 +67,6 @@ class Timetable(object):
                     available[time].append(str(court+1))
         return available
 
-    def yes_or_no(self, boolean):
-        return 'Yes' if boolean else 'No'
-
     def pretty_print(self):
         print('Squash Belegungsplan')
         print('--------------------')
@@ -80,11 +79,11 @@ class Timetable(object):
             court_availability = self.timetable_map[time]
             print('{}\t\t{}\t{}\t{}\t{}\t{}'.format(
                 time,
-                self.yes_or_no(court_availability[0]),
-                self.yes_or_no(court_availability[1]),
-                self.yes_or_no(court_availability[2]),
-                self.yes_or_no(court_availability[3]),
-                self.yes_or_no(court_availability[4])))
+                yes_or_no(court_availability[0]),
+                yes_or_no(court_availability[1]),
+                yes_or_no(court_availability[2]),
+                yes_or_no(court_availability[3]),
+                yes_or_no(court_availability[4])))
 
 
 def get_timetable_html(date):
@@ -92,12 +91,7 @@ def get_timetable_html(date):
     if response.status_code == 200:
         return response.text
     else:
-        raise Exception('There was an error fetching the Squash Calendar for year={}, month={}, day={}'.format(year, month, day))
-
-
-def daterange(start_date, end_date):
-    for n in range(int ((end_date - start_date).days)+1):
-        yield start_date + timedelta(n)
+        raise Exception('There was an error fetching the Squash Calendar for {}'.format(date))
 
 
 if __name__ == '__main__':
@@ -105,16 +99,20 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Squash Monitor 1.0')
     parser.add_argument('--from-date', help='Get available courts from the given date (i.e.: --from \'2018-01-01\'). Defaults to today')
     parser.add_argument('--to-date', help='Get available courts until the given date (i.e.: --to \'2018-01-01\'). Defaults to today')
+    parser.add_argument('--monitor', help='Repeat process every x seconds until there is one court available (i.e.: --monitor 10)')
     args = parser.parse_args()
 
     from_date = datetime.now().date()
     to_date = from_date
+    repeat_delay_seconds = None
     courts_set = {"1", "2", "3", "4", "5"}
 
     if args.from_date:
         from_date = datetime.strptime(args.from_date, '%Y-%m-%d').date()
     if args.to_date:
         to_date = datetime.strptime(args.to_date, '%Y-%m-%d').date()
+    if args.monitor:
+        repeat_delay_seconds = int(args.monitor)
 
     # Read config
     config = {
@@ -126,21 +124,33 @@ if __name__ == '__main__':
     exclude_courts = courts_set.difference(set(config['courts']))
 
     # Get available courts
-    print('Available courts from {} to {}'.format(from_date.strftime('%B %d'), to_date.strftime('%B %d')))
-    for current_date in daterange(from_date, to_date):
-        day_name = current_date.strftime('%A')
-        if config['available'] and day_name not in config['available']:
-            continue
+    while(True):
+        info('Checking available courts from {} to {}'.format(from_date.strftime('%B %d'), to_date.strftime('%B %d')))
+        has_available_courts = False
+        for current_date in date_range(from_date, to_date):
+            day_name = current_date.strftime('%A')
+            if config['available'] and day_name not in config['available']:
+                continue
 
-        timetable = Timetable(get_timetable_html(current_date))
-        available_times = timetable.get_available_times(include=config['available'][day_name])
+            timetable = Timetable(get_timetable_html(current_date))
+            available_times = timetable.get_available_times(include=config['available'][day_name])
 
-        if available_times:
-            print('')
-            print('# {}'.format(current_date.strftime('%A, %B %d')))
+            if available_times:
+                print('')
+                print('# {}'.format(current_date.strftime('%A, %B %d')))
 
-            sorted_times = sorted(available_times.keys())
-            for time in sorted_times:
-                courts = available_times[time]
-                filtered_courts = [court for court in courts if court not in exclude_courts]
-                print('\t{}: {}'.format(time, ', '.join(filtered_courts)))
+                sorted_times = sorted(available_times.keys())
+                for time in sorted_times:
+                    courts = available_times[time]
+                    filtered_courts = [court for court in courts if court not in exclude_courts]
+                    print('\t{}: {}'.format(time, ', '.join(filtered_courts)))
+                has_available_courts = True
+
+        if not repeat_delay_seconds:
+            break
+        elif has_available_courts:
+            alert_osx('Some courts are available now')
+            break
+        else:
+            warn('Sleeping for {} seconds...'.format(repeat_delay_seconds))
+            time.sleep(repeat_delay_seconds)

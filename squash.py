@@ -93,6 +93,10 @@ def get_timetable_html(date):
         raise Exception('There was an error fetching the Squash Calendar for {}'.format(date))
 
 
+def read_config():
+    with open('squash.yaml', 'r') as config_file:
+        return yaml.load(config_file)
+
 if __name__ == '__main__':
     # Parse args
     parser = argparse.ArgumentParser(description='Squash Monitor 1.0')
@@ -129,8 +133,7 @@ if __name__ == '__main__':
             'dates': []
         }
     }
-    with open('squash.yaml', 'r') as config_file:
-        config = yaml.load(config_file)
+    config = read_config()
 
     # Get available courts
     while True:
@@ -177,3 +180,4 @@ if __name__ == '__main__':
         else:
             warn('Sleeping for {} seconds...'.format(repeat_delay_seconds))
             time.sleep(repeat_delay_seconds)
+            config = read_config()

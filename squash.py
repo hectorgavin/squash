@@ -8,7 +8,7 @@ import requests
 import yaml
 from BeautifulSoup import BeautifulSoup
 
-from utils import alert_osx, date_range, yes_or_no, info, warn
+from utils import alert_osx, date_range, pretty_boolean, info, warn
 
 squash_calendar_endpoint = 'http://www.squash2000-paramount-fitness.de/plan.php'
 
@@ -55,10 +55,10 @@ class Timetable(object):
 
         return timetable
 
-    def get_available_times(self, include=None):
+    def get_available_times(self, time_filter=None):
         available = {}
         for time, courts in self.timetable_map.iteritems():
-            if include and time not in include:
+            if time_filter and time not in time_filter:
                 continue
             for court in range(0, len(courts)):
                 if courts[court]:
@@ -68,10 +68,8 @@ class Timetable(object):
         return available
 
     def pretty_print(self):
-        print('Squash Belegungsplan')
-        print('--------------------')
-        print('')
         print('Time/Court\t1\t2\t3\t4\t5')
+        print('--------------------------------------------------')
 
         sorted_times = sorted(self.timetable_map.keys())
 
@@ -79,11 +77,12 @@ class Timetable(object):
             court_availability = self.timetable_map[time]
             print('{}\t\t{}\t{}\t{}\t{}\t{}'.format(
                 time,
-                yes_or_no(court_availability[0]),
-                yes_or_no(court_availability[1]),
-                yes_or_no(court_availability[2]),
-                yes_or_no(court_availability[3]),
-                yes_or_no(court_availability[4])))
+                pretty_boolean(court_availability[0]),
+                pretty_boolean(court_availability[1]),
+                pretty_boolean(court_availability[2]),
+                pretty_boolean(court_availability[3]),
+                pretty_boolean(court_availability[4])))
+            print('--------------------------------------------------')
 
 
 def get_timetable_html(date):
@@ -100,12 +99,12 @@ if __name__ == '__main__':
     parser.add_argument('--from-date', help='Get available courts from the given date (i.e.: --from \'2018-01-01\'). Defaults to today')
     parser.add_argument('--to-date', help='Get available courts until the given date (i.e.: --to \'2018-01-01\'). Defaults to today')
     parser.add_argument('--monitor', help='Repeat process every x seconds until there is one court available (i.e.: --monitor 10)')
+    parser.add_argument('--show-timetable', action='store_const', const=True, default=False, help='Display full timetable when there are available courts')
     args = parser.parse_args()
 
     from_date = datetime.now().date()
     to_date = from_date
     repeat_delay_seconds = None
-    courts_set = {"1", "2", "3", "4", "5"}
 
     if args.from_date:
         from_date = datetime.strptime(args.from_date, '%Y-%m-%d').date()
@@ -116,36 +115,60 @@ if __name__ == '__main__':
 
     # Read config
     config = {
-        'available': None,
-        'courts': ["1", "2", "3", "4", "5"]
+        'include': {
+            'Monday': None,
+            'Tuesday': None,
+            'Wednesday': None,
+            'Thursday': None,
+            'Friday': None,
+            'Saturday': None,
+            'Sunday': None
+        },
+        'exclude': {
+            'courts': [],
+            'dates': []
+        }
     }
     with open('squash.yaml', 'r') as config_file:
         config = yaml.load(config_file)
-    exclude_courts = courts_set.difference(set(config['courts']))
 
     # Get available courts
-    while(True):
+    while True:
         info('Checking available courts from {} to {}'.format(from_date.strftime('%B %d'), to_date.strftime('%B %d')))
         has_available_courts = False
         for current_date in date_range(from_date, to_date):
             day_name = current_date.strftime('%A')
-            if config['available'] and day_name not in config['available']:
+
+            # Check if date should be ignored
+            if day_name not in config['include'] or str(current_date) in config['exclude']['dates']:
                 continue
 
+            # Fetch timetable
             timetable = Timetable(get_timetable_html(current_date))
-            available_times = timetable.get_available_times(include=config['available'][day_name])
+            available_times = timetable.get_available_times(time_filter=config['include'][day_name])
 
+            # Check for available times/courts
             if available_times:
-                print('')
-                print('# {}'.format(current_date.strftime('%A, %B %d')))
+                filtered_available_times = {}
+                for time, courts in available_times.iteritems():
+                    filtered_available_times[time] = [court for court in available_times[time] if court not in config['exclude']['courts']]
 
-                sorted_times = sorted(available_times.keys())
-                for time in sorted_times:
-                    courts = available_times[time]
-                    filtered_courts = [court for court in courts if court not in exclude_courts]
-                    print('\t{}: {}'.format(time, ', '.join(filtered_courts)))
-                has_available_courts = True
+                if filtered_available_times:
+                    has_available_courts = True
+                    print('')
+                    print('# {}'.format(current_date.strftime('%A, %B %d')))
 
+                    sorted_times = sorted(filtered_available_times.keys())
+                    for time in sorted_times:
+                        print('\t{}: {}'.format(time, ', '.join(filtered_available_times[time])))
+
+                    if args.show_timetable:
+                        print('')
+                        print('Timetable for {}'.format(current_date.strftime('%B %d')))
+                        print('')
+                        timetable.pretty_print()
+
+        # When monitoring, repeat until finding an available court
         if not repeat_delay_seconds:
             break
         elif has_available_courts:

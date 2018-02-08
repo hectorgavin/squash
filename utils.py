@@ -1,3 +1,5 @@
+# coding=utf-8
+
 from colors import color
 from datetime import timedelta
 from subprocess import check_call
@@ -14,8 +16,8 @@ def alert_osx(message='Alert'):
         check_call(['/usr/bin/osascript', '-e', 'tell application (path to frontmost application as text) to display dialog "'+ message +'" buttons {"OK"} with icon stop'], stdout=devnull)
 
 
-def yes_or_no(boolean):
-    return 'Yes' if boolean else 'No'
+def pretty_boolean(boolean):
+    return '✓' if boolean else '✕'
 
 
 def printc(string, the_color):

@@ -37,7 +37,7 @@ class TimetableMapper(object):
                     spots.append(td)
             for i in range(0, 5):
                 if len(spots[i].attrs) == 1:
-                    courts_availability[i] = spots[i].attrs[0][1] == 'background:#ffffff;'
+                    courts_availability[i] = spots[i].attrs[0][1].strip() == 'background:#ffffff;'
 
             timetable[key] = courts_availability
 

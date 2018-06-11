@@ -31,8 +31,8 @@ def read_config():
 if __name__ == '__main__':
     # Parse args
     parser = argparse.ArgumentParser(description='Squash2000 Court Checker 1.0')
-    parser.add_argument('--from-date', help='Get available courts from the given date (i.e.: --from \'2018-01-01\'). Defaults to today')
-    parser.add_argument('--to-date', help='Get available courts until the given date (i.e.: --to \'2018-01-01\'). Defaults to today')
+    parser.add_argument('--from-date', help='Get available courts from the given date, including that day (i.e.: --from \'2018-01-01\'). Defaults to today')
+    parser.add_argument('--to-date', help='Get available courts until the given date, including that day (i.e.: --to \'2018-01-01\'). Defaults to today')
     parser.add_argument('--monitor', help='Repeat process every x seconds until there is one court available (i.e.: --monitor 10)')
     parser.add_argument('--show-timetable', action='store_const', const=True, default=False, help='Display full timetable when there are available courts')
     args = parser.parse_args()

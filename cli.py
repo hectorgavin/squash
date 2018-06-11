@@ -10,8 +10,8 @@ from utils import alert_osx, date_range, info, warn
 from squash2000 import Squash2000
 
 
-def read_config():
-    with open('config/config.yaml', 'r') as config_file:
+def read_config(path):
+    with open(path, 'r') as config_file:
 		config = {
 			'exclude': {
 				'courts': [],
@@ -35,11 +35,13 @@ if __name__ == '__main__':
     parser.add_argument('--to-date', help='Get available courts until the given date, including that day (i.e.: --to \'2018-01-01\'). Defaults to today')
     parser.add_argument('--monitor', help='Repeat process every x seconds until there is one court available (i.e.: --monitor 10)')
     parser.add_argument('--show-timetable', action='store_const', const=True, default=False, help='Display full timetable when there are available courts')
+    parser.add_argument('--config-file', help='Path to config file. Defaults to \'./config/config.yaml\'')
     args = parser.parse_args()
 
     from_date = datetime.now().date()
     to_date = from_date
     repeat_delay_seconds = None
+    config_file_path = 'config/config.yaml'
 
     if args.from_date:
         from_date = datetime.strptime(args.from_date, '%Y-%m-%d').date()
@@ -47,9 +49,11 @@ if __name__ == '__main__':
         to_date = datetime.strptime(args.to_date, '%Y-%m-%d').date()
     if args.monitor:
         repeat_delay_seconds = int(args.monitor)
+    if args.config_file:
+        config_file_path = args.config_file
 
     # Read config
-    config = read_config()
+    config = read_config(config_file_path)
 
     # Get available courts
     while True:
@@ -96,4 +100,4 @@ if __name__ == '__main__':
         else:
             warn('Sleeping for {} seconds...'.format(repeat_delay_seconds))
             sleep(repeat_delay_seconds)
-            config = read_config()
+            config = read_config(config_file_path)

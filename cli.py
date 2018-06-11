@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 import argparse
-from time import time
+from time import time, sleep
 from datetime import datetime
 
 import yaml
@@ -12,7 +12,20 @@ from squash2000 import Squash2000
 
 def read_config():
     with open('config/config.yaml', 'r') as config_file:
-        return yaml.load(config_file)
+		config = {
+			'exclude': {
+				'courts': [],
+				'dates': []
+			}
+		}
+		config_read = yaml.load(config_file)
+		config['include'] = config_read['include']
+		if config_read['exclude'] is not None:
+			if config_read['exclude']['courts'] is not None:
+				config['exclude']['courts'] = config_read['exclude']['courts']
+			if config_read['exclude']['dates'] is not None:
+				config['exclude']['dates'] = config_read['exclude']['dates']
+		return config
 
 
 if __name__ == '__main__':
@@ -36,21 +49,6 @@ if __name__ == '__main__':
         repeat_delay_seconds = int(args.monitor)
 
     # Read config
-    config = {
-        'include': {
-            'Monday': None,
-            'Tuesday': None,
-            'Wednesday': None,
-            'Thursday': None,
-            'Friday': None,
-            'Saturday': None,
-            'Sunday': None
-        },
-        'exclude': {
-            'courts': [],
-            'dates': []
-        }
-    }
     config = read_config()
 
     # Get available courts
@@ -97,5 +95,5 @@ if __name__ == '__main__':
             break
         else:
             warn('Sleeping for {} seconds...'.format(repeat_delay_seconds))
-            time.sleep(repeat_delay_seconds)
+            sleep(repeat_delay_seconds)
             config = read_config()
